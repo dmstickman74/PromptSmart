@@ -356,70 +356,28 @@
 
   .size-btn:hover { background: #222; }
 
-  /* Window size presets */
-  .window-options {
+  /* Speed control in toolbar */
+  .speed-control {
     display: flex;
-    gap: 0.6rem;
     align-items: center;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 0.4rem;
   }
 
-  .window-options label {
+  .speed-control label {
     color: #888;
-    font-size: 0.85rem;
-    margin-right: 0.25rem;
+    font-size: 0.75rem;
   }
 
-  .preset-btn {
-    padding: 0.45rem 0.9rem;
-    background: #1a1a1a;
-    border: 1px solid #333;
-    border-radius: 6px;
-    color: #aaa;
-    font-size: 0.8rem;
+  #speed-slider {
+    width: 80px;
+    accent-color: #4a9eff;
     cursor: pointer;
-    transition: all 0.15s;
   }
 
-  .preset-btn:hover { background: #252525; color: #fff; }
-
-  .preset-btn.active {
-    border-color: #4a9eff;
-    color: #4a9eff;
-    background: rgba(74, 158, 255, 0.08);
-  }
-
-  .preset-btn.fullscreen-btn {
-    background: #1a1a2a;
-    border-color: #4a4a6a;
-    color: #8888cc;
-  }
-
-  .preset-btn.fullscreen-btn:hover {
-    background: #252540;
-    color: #aaaaff;
-  }
-
-  .custom-size-input {
-    width: 60px;
-    background: #141414;
-    border: 1px solid #333;
-    border-radius: 6px;
-    color: #ccc;
-    font-size: 0.8rem;
-    padding: 0.4rem 0.5rem;
-    text-align: center;
-    outline: none;
-  }
-
-  .custom-size-input:focus { border-color: #4a9eff; }
-
-  .custom-size-input::placeholder { color: #555; }
-
-  .size-separator {
-    color: #555;
-    font-size: 0.8rem;
+  #speed-display {
+    color: #888;
+    font-size: 0.75rem;
+    min-width: 1.5rem;
   }
 
   /* Script library */
@@ -626,18 +584,8 @@
     </div>
     <div class="script-list" id="script-list"></div>
   </div>
-  <div class="window-options">
-    <label>Window:</label>
-    <button class="preset-btn" data-w="1024" data-h="768">1024 &times; 768</button>
-    <button class="preset-btn" data-w="1280" data-h="800">1280 &times; 800</button>
-    <button class="preset-btn" data-w="1920" data-h="1080">1920 &times; 1080</button>
-    <span class="size-separator">|</span>
-    <input class="custom-size-input" id="custom-w" type="number" placeholder="W" min="400">
-    <span class="size-separator">&times;</span>
-    <input class="custom-size-input" id="custom-h" type="number" placeholder="H" min="300">
-    <button class="preset-btn" id="apply-custom-size">Apply</button>
-    <span class="size-separator">|</span>
-    <button class="preset-btn fullscreen-btn" id="fullscreen-btn">&#x26F6; Fullscreen</button>
+  <div class="setup-row">
+    <button class="btn btn-secondary" id="fullscreen-btn">&#x26F6; Fullscreen</button>
   </div>
   <div class="setup-row">
     <label class="file-label">
@@ -659,6 +607,12 @@
       <button class="toolbar-btn" id="fullscreen-toggle">Fullscreen</button>
     </div>
     <div class="right">
+      <div class="speed-control" id="speed-control" style="display:none;">
+        <label>Speed</label>
+        <input type="range" id="speed-slider" min="0" max="10" value="3" step="1">
+        <span id="speed-display">3</span>
+      </div>
+      <button class="toolbar-btn" id="scroll-mode-btn">Auto-Scroll</button>
       <div id="mic-status">
         <div id="mic-dot"></div>
         <span id="mic-label">Off</span>
@@ -1095,49 +1049,66 @@ scriptListEl.addEventListener('click', (e) => {
 
 renderScriptList();
 
-// Window size presets
-const presetBtns = document.querySelectorAll('.preset-btn[data-w]');
-const customW = document.getElementById('custom-w');
-const customH = document.getElementById('custom-h');
-const applyCustomSize = document.getElementById('apply-custom-size');
+// Fullscreen (setup screen)
 const fullscreenBtn = document.getElementById('fullscreen-btn');
-
-function clearPresetActive() {
-  presetBtns.forEach(b => b.classList.remove('active'));
-}
-
-presetBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const w = parseInt(btn.dataset.w);
-    const h = parseInt(btn.dataset.h);
-    window.resizeTo(w, h);
-    clearPresetActive();
-    btn.classList.add('active');
-  });
-});
-
-applyCustomSize.addEventListener('click', () => {
-  const w = parseInt(customW.value) || 1280;
-  const h = parseInt(customH.value) || 800;
-  window.resizeTo(w, h);
-  clearPresetActive();
-});
-
 fullscreenBtn.addEventListener('click', () => {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(() => {});
-    fullscreenBtn.textContent = '⛶ Exit Fullscreen';
   } else {
     document.exitFullscreen();
-    fullscreenBtn.textContent = '⛶ Fullscreen';
   }
-  clearPresetActive();
 });
 
-document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement) {
-    fullscreenBtn.textContent = '⛶ Fullscreen';
+// Auto-scroll speed mode
+const scrollModeBtn = document.getElementById('scroll-mode-btn');
+const speedControl = document.getElementById('speed-control');
+const speedSlider = document.getElementById('speed-slider');
+const speedDisplay = document.getElementById('speed-display');
+let autoScrollActive = false;
+let autoScrollInterval = null;
+
+function startAutoScrollMode() {
+  autoScrollActive = true;
+  scrollModeBtn.classList.add('active');
+  speedControl.style.display = 'flex';
+  stopRecognition();
+  listenBtn.classList.remove('active');
+  runAutoScroll();
+}
+
+function stopAutoScrollMode() {
+  autoScrollActive = false;
+  scrollModeBtn.classList.remove('active');
+  speedControl.style.display = 'none';
+  if (autoScrollInterval) { clearInterval(autoScrollInterval); autoScrollInterval = null; }
+}
+
+function runAutoScroll() {
+  if (autoScrollInterval) clearInterval(autoScrollInterval);
+  const speed = parseInt(speedSlider.value);
+  if (speed === 0 || !autoScrollActive) return;
+  const ms = 2200 - (speed * 180);
+  autoScrollInterval = setInterval(() => {
+    if (isPaused || !autoScrollActive) return;
+    if (currentIndex < words.length - 1) {
+      advanceTo(currentIndex + 1);
+    } else {
+      clearInterval(autoScrollInterval);
+    }
+  }, ms);
+}
+
+scrollModeBtn.addEventListener('click', () => {
+  if (autoScrollActive) {
+    stopAutoScrollMode();
+  } else {
+    startAutoScrollMode();
   }
+});
+
+speedSlider.addEventListener('input', () => {
+  speedDisplay.textContent = speedSlider.value;
+  if (autoScrollActive) runAutoScroll();
 });
 
 // Event listeners
@@ -1235,8 +1206,12 @@ captionsBtn.addEventListener('click', () => {
 });
 
 listenBtn.addEventListener('click', () => {
-  if (isListening) { stopRecognition(); }
-  else { startRecognition(); }
+  if (isListening) {
+    stopRecognition();
+  } else {
+    if (autoScrollActive) stopAutoScrollMode();
+    startRecognition();
+  }
 });
 
 sizeUp.addEventListener('click', () => {
