@@ -191,17 +191,55 @@
   /* Script display */
   #script-display {
     flex: 1;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     position: relative;
+    scroll-behavior: auto;
+  }
+
+  #script-display.auto-scroll {
+    overflow-y: hidden;
   }
 
   #script-scroll {
+    padding: 38vh 8vw 60vh 8vw;
+    transition: none;
+  }
+
+  #script-display.auto-scroll #script-scroll {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    padding: 40vh 8vw 60vh 8vw;
     transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+
+  /* Start Here button */
+  #start-here-btn {
+    display: none;
+    position: absolute;
+    top: 38vh;
+    left: 50%;
+    transform: translate(-50%, -120%);
+    z-index: 15;
+    padding: 0.5rem 1.2rem;
+    background: rgba(74, 158, 255, 0.9);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    transition: opacity 0.2s;
+  }
+
+  #start-here-btn:hover {
+    background: rgba(58, 142, 239, 0.95);
+  }
+
+  #script-display:not(.auto-scroll) #start-here-btn {
+    display: block;
   }
 
   #script-scroll .word {
@@ -418,8 +456,9 @@
       <button class="toolbar-btn active" id="listen-btn">Listen</button>
     </div>
   </div>
-  <div id="script-display">
+  <div id="script-display" class="auto-scroll">
     <div id="focus-line"></div>
+    <button id="start-here-btn">&#9654; Start Here</button>
     <div id="script-scroll"></div>
   </div>
   <div id="heard-text"></div>
@@ -438,6 +477,7 @@ const captionsBtn = document.getElementById('captions-btn');
 const listenBtn = document.getElementById('listen-btn');
 const scriptScroll = document.getElementById('script-scroll');
 const scriptDisplay = document.getElementById('script-display');
+const startHereBtn = document.getElementById('start-here-btn');
 const micDot = document.getElementById('mic-dot');
 const micLabel = document.getElementById('mic-label');
 const heardText = document.getElementById('heard-text');
@@ -511,8 +551,12 @@ function updateFontSize() {
   fontSizeDisplay.textContent = fontSize;
 }
 
+let isAutoScroll = true;
+let manualScrollTimer = null;
+
 function scrollToWord(index) {
   if (index < 0 || index >= wordEls.length) return;
+  if (!isAutoScroll) return;
   const el = wordEls[index];
   const displayRect = scriptDisplay.getBoundingClientRect();
   const targetY = displayRect.height * 0.38;
@@ -520,6 +564,63 @@ function scrollToWord(index) {
   const offset = -(wordTop - targetY);
   scriptScroll.style.transform = `translateY(${offset}px)`;
 }
+
+function enterManualScroll() {
+  if (!isAutoScroll) return;
+  isAutoScroll = false;
+  scriptDisplay.classList.remove('auto-scroll');
+  const currentTransform = scriptScroll.style.transform;
+  const match = currentTransform.match(/translateY\((.+?)px\)/);
+  const currentOffset = match ? parseFloat(match[1]) : 0;
+  scriptScroll.style.transform = 'none';
+  scriptDisplay.scrollTop = -currentOffset;
+}
+
+function exitManualScroll() {
+  isAutoScroll = true;
+  scriptDisplay.classList.add('auto-scroll');
+  scriptDisplay.scrollTop = 0;
+  scrollToWord(currentIndex);
+}
+
+function findWordAtFocusLine() {
+  const displayRect = scriptDisplay.getBoundingClientRect();
+  const focusY = displayRect.top + displayRect.height * 0.38;
+  let closest = 0;
+  let closestDist = Infinity;
+  for (let i = 0; i < wordEls.length; i++) {
+    const rect = wordEls[i].getBoundingClientRect();
+    const wordMid = rect.top + rect.height / 2;
+    const dist = Math.abs(wordMid - focusY);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = i;
+    }
+  }
+  return closest;
+}
+
+function setStartHere() {
+  const targetIndex = findWordAtFocusLine();
+  wordEls.forEach((el, i) => {
+    if (isCue[i]) {
+      el.className = i < targetIndex ? 'cue spoken' : 'cue';
+    } else {
+      if (i < targetIndex) el.className = 'word spoken';
+      else if (i === targetIndex) el.className = 'word current';
+      else if (i <= targetIndex + 10) el.className = 'word upcoming';
+      else el.className = 'word';
+    }
+  });
+  currentIndex = targetIndex;
+  exitManualScroll();
+}
+
+scriptDisplay.addEventListener('wheel', (e) => {
+  if (isAutoScroll) enterManualScroll();
+}, { passive: true });
+
+startHereBtn.addEventListener('click', setStartHere);
 
 function advanceTo(newIndex) {
   if (newIndex <= currentIndex || newIndex >= words.length) return;
