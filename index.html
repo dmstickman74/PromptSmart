@@ -262,10 +262,21 @@
     color: #999;
   }
 
-  /* Paragraph breaks */
+  /* Paragraph and line breaks */
   #script-scroll .para-break {
     display: block;
-    height: 1.2em;
+    width: 100%;
+    height: 0;
+    margin-bottom: 1.4em;
+    clear: both;
+  }
+
+  #script-scroll .line-break {
+    display: block;
+    width: 100%;
+    height: 0;
+    margin-bottom: 0.2em;
+    clear: both;
   }
 
   /* Stage cues like [Next Slide] */
@@ -545,6 +556,51 @@
   .item-btn:hover { color: #ccc; background: #222; }
   .item-btn.delete:hover { color: #f66; border-color: #f66; }
 
+  /* Pause overlay */
+  #pause-overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 25;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  #pause-overlay.visible {
+    display: flex;
+  }
+
+  #pause-overlay .pause-label {
+    color: #f0c040;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  #pause-overlay .resume-btn {
+    padding: 0.75rem 2rem;
+    background: #4a9eff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #pause-overlay .resume-btn:hover { background: #3a8eef; }
+
+  .toolbar-btn.paused {
+    border-color: #f0c040 !important;
+    color: #f0c040 !important;
+  }
+
   /* Mirror mode */
   #script-display.mirrored #script-scroll {
     transform: scaleX(-1);
@@ -593,6 +649,7 @@
   <div id="toolbar">
     <div class="left">
       <button class="toolbar-btn" id="back-btn">Back</button>
+      <button class="toolbar-btn" id="pause-btn">Pause</button>
       <button class="toolbar-btn" id="reset-btn">Reset</button>
       <button class="toolbar-btn" id="mirror-btn">Mirror</button>
       <button class="toolbar-btn" id="captions-btn">Captions</button>
@@ -612,6 +669,10 @@
   <div id="script-display" class="auto-scroll">
     <div id="focus-line"></div>
     <button id="start-here-btn">&#9654; Start Here</button>
+    <div id="pause-overlay">
+      <span class="pause-label">PAUSED</span>
+      <button class="resume-btn" id="resume-btn">Resume</button>
+    </div>
     <div id="script-scroll"></div>
   </div>
   <div id="heard-text"></div>
@@ -695,8 +756,9 @@ function buildScript(text) {
       return;
     }
     if (tok.linebreak) {
-      const br = document.createElement('br');
-      scriptScroll.appendChild(br);
+      const lb = document.createElement('div');
+      lb.className = 'line-break';
+      scriptScroll.appendChild(lb);
       return;
     }
     const span = document.createElement('span');
@@ -1108,6 +1170,29 @@ resetBtn.addEventListener('click', () => {
   scrollToWord(0);
 });
 
+const pauseBtn = document.getElementById('pause-btn');
+const pauseOverlay = document.getElementById('pause-overlay');
+const resumeBtn = document.getElementById('resume-btn');
+let isPaused = false;
+
+function togglePause() {
+  isPaused = !isPaused;
+  if (isPaused) {
+    stopRecognition();
+    pauseBtn.textContent = 'Resume';
+    pauseBtn.classList.add('paused');
+    pauseOverlay.classList.add('visible');
+  } else {
+    startRecognition();
+    pauseBtn.textContent = 'Pause';
+    pauseBtn.classList.remove('paused');
+    pauseOverlay.classList.remove('visible');
+  }
+}
+
+pauseBtn.addEventListener('click', togglePause);
+resumeBtn.addEventListener('click', togglePause);
+
 const fullscreenToggle = document.getElementById('fullscreen-toggle');
 fullscreenToggle.addEventListener('click', () => {
   if (!document.fullscreenElement) {
@@ -1165,6 +1250,7 @@ document.addEventListener('keydown', (e) => {
     advanceTo(target);
     e.preventDefault();
   }
+  if (e.key === ' ') { togglePause(); e.preventDefault(); }
   if (e.key === '+' || e.key === '=') { sizeUp.click(); }
   if (e.key === '-') { sizeDown.click(); }
 });
