@@ -262,6 +262,12 @@
     color: #999;
   }
 
+  /* Paragraph breaks */
+  #script-scroll .para-break {
+    display: block;
+    height: 1.2em;
+  }
+
   /* Stage cues like [Next Slide] */
   #script-scroll .cue {
     display: inline-block;
@@ -651,15 +657,23 @@ function normalize(text) {
 
 function parseScript(text) {
   const tokens = [];
-  const regex = /\[([^\]]+)\]|(\S+)/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    if (match[1] !== undefined) {
-      tokens.push({ text: match[1].trim(), cue: true });
-    } else {
-      tokens.push({ text: match[2], cue: false });
-    }
-  }
+  const paragraphs = text.split(/\n\s*\n/);
+  paragraphs.forEach((para, pi) => {
+    if (pi > 0) tokens.push({ break: true });
+    const lines = para.split(/\n/);
+    lines.forEach((line, li) => {
+      if (li > 0 && line.trim().length > 0) tokens.push({ linebreak: true });
+      const regex = /\[([^\]]+)\]|(\S+)/g;
+      let match;
+      while ((match = regex.exec(line)) !== null) {
+        if (match[1] !== undefined) {
+          tokens.push({ text: match[1].trim(), cue: true });
+        } else {
+          tokens.push({ text: match[2], cue: false });
+        }
+      }
+    });
+  });
   return tokens;
 }
 
@@ -672,7 +686,19 @@ function buildScript(text) {
   scriptNormalized = [];
   currentIndex = 0;
 
-  tokens.forEach((tok, i) => {
+  let wordCount = 0;
+  tokens.forEach((tok) => {
+    if (tok.break) {
+      const spacer = document.createElement('div');
+      spacer.className = 'para-break';
+      scriptScroll.appendChild(spacer);
+      return;
+    }
+    if (tok.linebreak) {
+      const br = document.createElement('br');
+      scriptScroll.appendChild(br);
+      return;
+    }
     const span = document.createElement('span');
     if (tok.cue) {
       span.className = 'cue';
@@ -681,12 +707,13 @@ function buildScript(text) {
       isCue.push(true);
       scriptNormalized.push('');
     } else {
-      span.className = 'word' + (i === 0 ? ' current' : (i <= 10 ? ' upcoming' : ''));
+      span.className = 'word' + (wordCount === 0 ? ' current' : (wordCount <= 10 ? ' upcoming' : ''));
       span.textContent = tok.text + ' ';
       words.push(tok.text);
       isCue.push(false);
       scriptNormalized.push(normalize(tok.text));
     }
+    wordCount++;
     span.dataset.index = words.length - 1;
     scriptScroll.appendChild(span);
     wordEls.push(span);
