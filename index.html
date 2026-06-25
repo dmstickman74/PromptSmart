@@ -220,11 +220,11 @@
   /* Start Here button */
   #start-here-btn {
     display: none;
-    position: absolute;
+    position: fixed;
     top: 38vh;
     left: 50%;
     transform: translate(-50%, -120%);
-    z-index: 15;
+    z-index: 30;
     padding: 0.5rem 1.2rem;
     background: rgba(74, 158, 255, 0.9);
     color: #fff;
@@ -241,7 +241,7 @@
     background: rgba(58, 142, 239, 0.95);
   }
 
-  #script-display:not(.auto-scroll) #start-here-btn {
+  #start-here-btn.visible {
     display: block;
   }
 
@@ -669,9 +669,9 @@
       <button class="toolbar-btn active" id="listen-btn">Listen</button>
     </div>
   </div>
+  <button id="start-here-btn">&#9654; Start Here</button>
   <div id="script-display" class="auto-scroll">
     <div id="focus-line"></div>
-    <button id="start-here-btn">&#9654; Start Here</button>
     <div id="pause-overlay">
       <span class="pause-label">PAUSED</span>
       <button class="resume-btn" id="resume-btn">Resume</button>
@@ -811,6 +811,7 @@ function enterManualScroll() {
   if (!isAutoScroll) return;
   isAutoScroll = false;
   scriptDisplay.classList.remove('auto-scroll');
+  startHereBtn.classList.add('visible');
   const currentTransform = scriptScroll.style.transform;
   const match = currentTransform.match(/translateY\((.+?)px\)/);
   const currentOffset = match ? parseFloat(match[1]) : 0;
@@ -821,6 +822,7 @@ function enterManualScroll() {
 function exitManualScroll() {
   isAutoScroll = true;
   scriptDisplay.classList.add('auto-scroll');
+  startHereBtn.classList.remove('visible');
   scriptDisplay.scrollTop = 0;
   scrollToWord(currentIndex);
 }
@@ -983,7 +985,7 @@ function startRecognition() {
 
     const spokenWords = text.toLowerCase().replace(/[^a-z0-9' ]/g, '').split(/\s+/).filter(w => w.length > 0);
     const match = findBestMatch(spokenWords);
-    const maxJump = 20;
+    const maxJump = 8;
     if (match > currentIndex && match <= currentIndex + maxJump) {
       advanceTo(Math.min(match + 1, words.length - 1));
     }
