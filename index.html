@@ -12,8 +12,7 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     background: #0a0a0a;
     color: #e0e0e0;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
   }
 
   /* Setup screen */
@@ -22,9 +21,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
+    min-height: 100vh;
     padding: 2rem;
     gap: 1.5rem;
+    overflow-y: auto;
   }
 
   #setup h1 {
@@ -44,7 +44,7 @@
   #script-input {
     width: 100%;
     max-width: 700px;
-    height: 45vh;
+    height: 35vh;
     background: #141414;
     border: 1px solid #333;
     border-radius: 12px;
@@ -298,6 +298,72 @@
 
   .size-btn:hover { background: #222; }
 
+  /* Window size presets */
+  .window-options {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .window-options label {
+    color: #888;
+    font-size: 0.85rem;
+    margin-right: 0.25rem;
+  }
+
+  .preset-btn {
+    padding: 0.45rem 0.9rem;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #aaa;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .preset-btn:hover { background: #252525; color: #fff; }
+
+  .preset-btn.active {
+    border-color: #4a9eff;
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.08);
+  }
+
+  .preset-btn.fullscreen-btn {
+    background: #1a1a2a;
+    border-color: #4a4a6a;
+    color: #8888cc;
+  }
+
+  .preset-btn.fullscreen-btn:hover {
+    background: #252540;
+    color: #aaaaff;
+  }
+
+  .custom-size-input {
+    width: 60px;
+    background: #141414;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #ccc;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.5rem;
+    text-align: center;
+    outline: none;
+  }
+
+  .custom-size-input:focus { border-color: #4a9eff; }
+
+  .custom-size-input::placeholder { color: #555; }
+
+  .size-separator {
+    color: #555;
+    font-size: 0.8rem;
+  }
+
   /* Mirror mode */
   #script-display.mirrored #script-scroll {
     transform: scaleX(-1);
@@ -310,6 +376,19 @@
   <h1>PromptSmart</h1>
   <p class="subtitle">Paste or load your script below. The prompter listens to your voice and scrolls to follow along automatically.</p>
   <textarea id="script-input" placeholder="Paste your script here..."></textarea>
+  <div class="window-options">
+    <label>Window:</label>
+    <button class="preset-btn" data-w="1024" data-h="768">1024 &times; 768</button>
+    <button class="preset-btn" data-w="1280" data-h="800">1280 &times; 800</button>
+    <button class="preset-btn" data-w="1920" data-h="1080">1920 &times; 1080</button>
+    <span class="size-separator">|</span>
+    <input class="custom-size-input" id="custom-w" type="number" placeholder="W" min="400">
+    <span class="size-separator">&times;</span>
+    <input class="custom-size-input" id="custom-h" type="number" placeholder="H" min="300">
+    <button class="preset-btn" id="apply-custom-size">Apply</button>
+    <span class="size-separator">|</span>
+    <button class="preset-btn fullscreen-btn" id="fullscreen-btn">&#x26F6; Fullscreen</button>
+  </div>
   <div class="setup-row">
     <label class="file-label">
       Load file
@@ -326,6 +405,7 @@
       <button class="toolbar-btn" id="reset-btn">Reset</button>
       <button class="toolbar-btn" id="mirror-btn">Mirror</button>
       <button class="toolbar-btn" id="captions-btn">Captions</button>
+      <button class="toolbar-btn" id="fullscreen-toggle">Fullscreen</button>
     </div>
     <div class="right">
       <div id="mic-status">
@@ -590,6 +670,51 @@ function stopRecognition() {
   listenBtn.classList.remove('active');
 }
 
+// Window size presets
+const presetBtns = document.querySelectorAll('.preset-btn[data-w]');
+const customW = document.getElementById('custom-w');
+const customH = document.getElementById('custom-h');
+const applyCustomSize = document.getElementById('apply-custom-size');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+function clearPresetActive() {
+  presetBtns.forEach(b => b.classList.remove('active'));
+}
+
+presetBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const w = parseInt(btn.dataset.w);
+    const h = parseInt(btn.dataset.h);
+    window.resizeTo(w, h);
+    clearPresetActive();
+    btn.classList.add('active');
+  });
+});
+
+applyCustomSize.addEventListener('click', () => {
+  const w = parseInt(customW.value) || 1280;
+  const h = parseInt(customH.value) || 800;
+  window.resizeTo(w, h);
+  clearPresetActive();
+});
+
+fullscreenBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    fullscreenBtn.textContent = '⛶ Exit Fullscreen';
+  } else {
+    document.exitFullscreen();
+    fullscreenBtn.textContent = '⛶ Fullscreen';
+  }
+  clearPresetActive();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    fullscreenBtn.textContent = '⛶ Fullscreen';
+  }
+});
+
 // Event listeners
 fileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -632,6 +757,21 @@ resetBtn.addEventListener('click', () => {
     else { el.className = 'word' + (i === 0 ? ' current' : (i <= 10 ? ' upcoming' : '')); }
   });
   scrollToWord(0);
+});
+
+const fullscreenToggle = document.getElementById('fullscreen-toggle');
+fullscreenToggle.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    fullscreenToggle.classList.add('active');
+  } else {
+    document.exitFullscreen();
+    fullscreenToggle.classList.remove('active');
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  fullscreenToggle.classList.toggle('active', !!document.fullscreenElement);
 });
 
 mirrorBtn.addEventListener('click', () => {
