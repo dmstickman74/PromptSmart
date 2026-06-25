@@ -889,10 +889,10 @@ function advanceTo(newIndex) {
 }
 
 function findBestMatch(spokenWords) {
-  if (spokenWords.length === 0) return -1;
+  if (spokenWords.length < 2) return -1;
 
   const searchStart = Math.max(0, currentIndex - 2);
-  const searchEnd = Math.min(scriptNormalized.length, currentIndex + 60);
+  const searchEnd = Math.min(scriptNormalized.length, currentIndex + 30);
   let bestIndex = -1;
   let bestScore = 0;
 
@@ -904,13 +904,11 @@ function findBestMatch(spokenWords) {
       const spoken = spokenWords[j];
       if (spoken.length === 0) continue;
 
-      for (let look = pos; look < Math.min(pos + 5, searchEnd); look++) {
+      for (let look = pos; look < Math.min(pos + 3, searchEnd); look++) {
         if (isCue[look]) continue;
         const scriptWord = scriptNormalized[look];
         if (scriptWord === spoken ||
-            (spoken.length > 3 && scriptWord.startsWith(spoken)) ||
-            (scriptWord.length > 3 && spoken.startsWith(scriptWord)) ||
-            levenshtein(spoken, scriptWord) <= Math.max(1, Math.floor(scriptWord.length / 4))) {
+            levenshtein(spoken, scriptWord) <= Math.max(1, Math.floor(scriptWord.length / 5))) {
           matched++;
           pos = look + 1;
           break;
@@ -918,7 +916,8 @@ function findBestMatch(spokenWords) {
       }
     }
 
-    if (matched > bestScore && matched >= Math.max(1, spokenWords.length * 0.4)) {
+    const minRequired = Math.max(2, Math.ceil(spokenWords.length * 0.6));
+    if (matched > bestScore && matched >= minRequired) {
       bestScore = matched;
       bestIndex = pos - 1;
     }
@@ -968,14 +967,24 @@ function startRecognition() {
       }
     }
 
+    let lowConfidence = false;
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i][0].confidence > 0 && event.results[i][0].confidence < 0.5) {
+        lowConfidence = true;
+      }
+    }
+
     const text = (final + interim).trim();
     if (showCaptions) {
       heardText.textContent = text;
     }
 
+    if (lowConfidence && !final) return;
+
     const spokenWords = text.toLowerCase().replace(/[^a-z0-9' ]/g, '').split(/\s+/).filter(w => w.length > 0);
     const match = findBestMatch(spokenWords);
-    if (match > currentIndex) {
+    const maxJump = 20;
+    if (match > currentIndex && match <= currentIndex + maxJump) {
       advanceTo(Math.min(match + 1, words.length - 1));
     }
   };
